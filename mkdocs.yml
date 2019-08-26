@@ -1,0 +1,8 @@
+site_name: Metadium Documentation
+theme: readthedocs
+
+pages:
+  - Home: index.md
+  - Metadium_Dev_Guide:
+      - "English": "Metadium_Dev_Guide_EN.md"
+      - "한국어": "Metadium_Dev_Guide_KR.md"
