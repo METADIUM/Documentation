@@ -1,5 +1,5 @@
 # Metadium Blockchain: Developer Guide Document
-March 15, 2019
+Updated on Dec 2, 2022
 
 ## Table of contents
 - [1.Introduction](#1introduction)
@@ -50,10 +50,10 @@ After installing, run `gmet metadium new-account` to create an account on your l
 
 Below is the recommended command to start `gmet` node as a full data sync node.
 <pre><code>## MAINNET
-{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --rpc --rpcaddr 0.0.0.0
+{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --http --http.addr 0.0.0.0
 
 ## TESTNET
-{data_folder}/bin/gmet --testnet --syncmode full --datadir {data_folder} --rpc --rpcaddr 0.0.0.0</pre></code>
+{data_folder}/bin/gmet --meta-testnet --syncmode full --datadir {data_folder} --http --http.addr 0.0.0.0</pre></code>
 
 If you would like to start gmet with fast sync, please give the same command without `--syncmode full` option.
 
@@ -139,23 +139,25 @@ Metamask can be used to send / receive META with Metadium blockchain. It is also
 Remember to set the gas price to 80 GWei or higher when you send via metamask.
 
 * Step#1: Install Metamask Chrome Extension [Web Store](https://chrome.google.com/webstore/search/metamask?utm_source=chrome-ntp-icon)
-* Step#2: At Networks → Choose “Custom RPC”
-* Step#3: At Settings → Choose “Show Advanced Options”
+* Step#2: Choose "Settings"
+* Step#3: Choose "Networks" → Choose “Add a network”
 * Step#4: Type Metadium Network Info → Save → Close Settings
-  - Setting for Mainnet <pre><code>New RPC URL: https://api.metadium.com/prod
-  ChainID: 11
-  Symbol: META
-  Nickname: META Mainnet
+  - Setting for Mainnet <pre><code>Network name: META Mainnet
+  New RPC URL: https://api.metadium.com/prod
+  Chain ID: 11
+  Currency symbol: META
+  Block explorer URL (Optional): https://explorer.metadium.com
   </pre></code>
-  - Setting for Testnet<pre><code>New RPC URL: https://api.metadium.com/dev
-  ChainID: 12
-  Symbol: META
-  Nickname: META Testnet
+  - Setting for Testnet<pre><code>Network name: META Testnet
+  New RPC URL: https://api.metadium.com/dev
+  Chain ID: 12
+  Currency symbol: META
+  Block explorer URL (Optional): https://testnetexplorer.metadium.com
   </pre></code>
 * Step#5: You are now connected to Metadium Network (either Mainnet or Testnet)
 * Step#6: Check your balance
 * Step#7: Click Send → Fill To/Amount fields → Choose “Advanced Options”
-* Step#8: Change Gas Price (GWEI) to 80 at least → Save → Next → Confirm
+* Step#8: Change both "Max priority fee (GWEI)" and "Max fee (GWEI)" to 80 at least → Save → Confirm
 * Step#9: Copy source or destination address → Go [Metadium Block Explorer](https://explorer.metadium.com/) → Copy Address to search window and Enter → See [transaction lists of address](https://explorer.metadium.com/addresses/)
 <br>
 <br>
