@@ -1,5 +1,5 @@
 # 메타디움 메인넷: 개발자 가이드 문서
-2019년 3월 15일
+2026년 9월 10일
 
 ## 목차
 - [1.Introduction](#1introduction)
@@ -11,6 +11,7 @@
   * [Interface (JSON RPC)](#interface-json-rpc)
   * [Network ID & Chain ID](#network-id--chain-id)
   * [Transaction Fee](#transaction-fee)
+  * [EVM Version](#evm-version)
 - [3.Block Explorer](#3block-explorer)
 - [4.Testnet META Faucet](#4-testnet-meta-faucet)
 - [5.Block Interval](#5-block-interval)
@@ -27,7 +28,7 @@
 <br>
 
 ## 1.Introduction
-본 문서는 Metadium Mainnet을 지원하려는 거래소 기술팀과 개일 개발자들을 위한 참고문서로서 Metadium Testnet/ Mainnet Integration을 위하여 작성하였다. 현 문서는 2018년 9월 30일부터 운영중인 Metadium Testnet(Kalmia v2)과 2019년 3월 20일 시작되는 Metadium Mainnet을 기준으로 작성되었다.
+본 문서는 Metadium Mainnet을 지원하려는 거래소 기술팀과 개일 개발자들을 위한 참고문서로서 Metadium Testnet/ Mainnet Integration을 위하여 작성하였다. 현 문서는 Camellia 업그레이드(Cancun EVM) 시점의 Metadium Mainnet 과 Testnet 을 기준으로 한다.
 <br>
 <br>
 
@@ -36,30 +37,35 @@ In order to connect with Metadium blockchain, you must install Metadium client `
 <br>
 
 ### Download Source Code
-Metadium Client는 Go-Metadium(gmet)이라고 칭하며 Ethereum의 Go-Ethereum clinet를 forking하여 만들어졌다. 해당 source code는 [Github Repository](https://github.com/METADIUM/go-metadium)에서 다운받을수있다.
+Metadium Client는 Go-Metadium(gmet)이라고 칭하며 Ethereum의 Go-Ethereum clinet를 forking하여 만들어졌다. 해당 source code는 [Github Repository](https://github.com/METADIUM/go-metadium)에서 다운받을수있고, 배포용 바이너리는 [Releases 페이지](https://github.com/METADIUM/go-metadium/releases)에 게시된다.
 
 <br>
 
 ### Install
-설치방법은 github repository의 [readme](https://github.com/METADIUM/go-metadium/blob/master/README.md) file을 참조하여 진행한다. Docker환경에 익숙한 개발자는 제공되는 docker image를 이용하여 building machine을 만들수있다. docker image를 사용하면 많은 dependency문제를 해결할수있다.
+**소스 빌드가 아니라 게시된 릴리스 산출물을 사용한다.** 릴리스마다 DB 엔진별로 Linux tarball 두 개가 제공된다 — `metadium-<version>-linux-leveldb.tar.gz` 와 `metadium-<version>-linux-rocksdb.tar.gz`. 운영 중인 노드의 엔진에 맞는 것을 [Releases 페이지](https://github.com/METADIUM/go-metadium/releases)에서 받아 노드 디렉터리에 덮어쓰고 재시작한다. **노드의 엔진은 바이너리 교체로 바꿀 수 없다** — 기존 chaindata가 엔진을 결정한다.
 
+**최소 OS: Ubuntu 20.04 이상**(glibc 2.31+). 릴리스 바이너리가 그 하한으로 빌드되므로 그보다 낮은 환경에서는 기동하지 않는다.
 
-Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-1021-aws x86_64)를 기준으로 gmet을 실행하기 위해서는 아래와 같이 필요한 library들을 설치하여야한다.
-<pre><code>sudo apt-get install -y libtbb2 libzstd1 libjemalloc1 libsnappy1v5 liblz4-1 libstdc++6</pre></code>
+RocksDB 빌드는 아래 공유 라이브러리가 호스트에 있어야 한다.
+<pre><code>sudo apt-get install -y libjemalloc2 libsnappy1v5 liblz4-1 libzstd1</pre></code>
+
+소스 빌드는 개발용이며 **Go 1.22 이상**이 필요하다. 빌드 방법은 [readme](https://github.com/METADIUM/go-metadium/blob/master/README.md)를 참조한다. 직접 빌드한 바이너리는 이식성이 없으므로 운영에 배포하지 않는다.
 
 설치가 끝나면 `gmet metadium new-account` 를 실행하여 로컬 노드에 새로운 계정을 만들수있다. 이제 gmet를 실행하고 Mainnet 또는 Testnet 네트워크에 연결할 수 있다. `gmet --help` 명령을 사용하면 다른 옵션과 명령을 확인할수있다.
 
 아래는 `gmet` node를 full data sync 모드로 실행시키는 명령이다.
 <pre><code>## MAINNET
-{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --rpc --rpcaddr 0.0.0.0
+{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --http
 
 ## TESTNET
-{data_folder}/bin/gmet --testnet --syncmode full --datadir {data_folder} --rpc --rpcaddr 0.0.0.0</pre></code>
+{data_folder}/bin/gmet --metadium-testnet --syncmode full --datadir {data_folder} --http</pre></code>
 
-만약 full data를 저장하지 않은 상태로 sync 시키려면 `--syncmode full` 이라는 옵션없이 실행한다.
+RPC listener 는 기본값이 `127.0.0.1` 이며 그대로 두는 것을 권장한다. 외부에 노출할 때는 reverse proxy 나 출발지를 제한하는 security group 뒤에 두고, 계정을 보유한 노드에서는 `0.0.0.0` 으로 바인딩하지 않는다.
+
+**Full sync 가 유일하게 지원되는 모드다.** 이 네트워크는 snap/fast sync 를 서브하지 않으므로 `--syncmode full` 없이 기동한 노드는 초기 동기화를 끝내지 못한다. 모든 노드에 `--syncmode full` 을 유지한다.
 
 
-gmet 실행파일에는 Metadium Team에서 공식적으로 운영하는 bootnode가 들어있기 때문에 gmet을 실행할때 bootnode를 수동으로 입력할 필요는 없다. 개별적으로 운영하는 bootnode를 등록하여 사용하려면 “-- bootnode” 옵션을 사용하여 추가하는것이 가능하다.
+gmet 실행파일에는 Metadium Team에서 공식적으로 운영하는 bootnode가 들어있기 때문에 gmet을 실행할때 bootnode를 수동으로 입력할 필요는 없다. 개별적으로 운영하는 bootnode를 등록하여 사용하려면 `--bootnodes` 옵션을 사용하여 추가하는것이 가능하다.
 <br>
 
 ### Address Format
@@ -71,9 +77,9 @@ Metadium Team은 2019년 2월 22일 3시 UTC, Metadium ERC20 contract을 freezin
 <br>
 
 ### Interface (JSON RPC)
-Go-Ethereum이 지원하는 [RPC](https://github.com/ethereumproject/go-ethereum/wiki/JSON-RPC)를 변경없이 그대로 지원한다. 아래는 Metadium Testnet의 Open API 서버를 이용한  test용 cURL sentence이다.
+Metadium 은 표준 Ethereum JSON-RPC API([execution-apis](https://ethereum.github.io/execution-apis/))를 구현하며, 여기에 fee delegation 트랜잭션 등 Metadium 고유 기능이 더해져 있다. 특정 method 에 의존하는 응용이라면 특정 go-ethereum 릴리스와 동일하다고 가정하지 말고 노드에 직접 확인한다. 아래는 Metadium Testnet의 Open API 서버를 이용한  test용 cURL sentence이다.
 
-Gmet의 default port는 8588이며, gmet실행시 `--rpcport 8545` 옵션을 사용하여 geth와 동일한 8545로 변경할수있다.
+Gmet의 default port는 8588이며, gmet실행시 `--http.port 8545` 옵션을 사용하여 geth와 동일한 8545로 변경할수있다.
 
 아래는 특정주소의 META token balance를 읽어오는 명령예이다.
 <pre><code>## MAINNET
@@ -100,6 +106,10 @@ curl -i -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method
 curl -i -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}' https://api.metadium.com/dev
 </pre></code>
 <br>
+
+### EVM Version
+Metadium 의 EVM 은 **Cancun**(Camellia 업그레이드)이며, Mainnet 은 블록 **117,764,000**, Testnet 은 **86,449,000** 부터 활성화되어 있다. 컨트랙트는 `--evm-version cancun` 으로 컴파일한다(툴체인 기본값이 Cancun 이하를 타깃하면 그대로 두어도 된다). 해당 블록 이후로 `PUSH0`, `TLOAD`/`TSTORE`, `MCOPY`, `BLOBBASEFEE` 와 warm `COINBASE` 를 사용할 수 있으며, Cancun 보다 최신 EVM 버전으로 컴파일한 컨트랙트는 동작하지 않는다.
+<br>
 <br>
 
 ## 3.Block Explorer
@@ -116,12 +126,13 @@ Metadium blockchain에서 사용되는 native coin인 META는 [Testnet META Fauc
 <br>
 
 ## 5. Block Interval
-Metadium의 합의 알고리즘은 SPoA(Staking based Proof of Authority)이며 합의 알고리즘에 대한 자세한 사항은 추후 public에 공개할 예정이다.
+Metadium 은 permissioned Proof-of-Authority 합의를 사용한다. 거버넌스 컨트랙트를 통해 온체인에 등록된 고정된 블록 생성자 집합이 블록을 만들고, 멤버십 조건으로 staking 을 요구한다. 블록 생성은 높이에 따라 이들 사이에서 순환한다.
 
 |   | Testnet | Mainnet |
 | -------------------------------------------- | ----------- | ----------- |
-| Block Interval with pending transactions | 즉시 | 즉시 |
-| Block Interval with no pending transaction | 5초 | 5초 |
+| Block interval | 2초 | 2초 |
+
+블록 간격은 클라이언트 설정이 아니라 거버넌스 파라미터(`blockCreationTime`)이며 양 네트워크 모두 2초다. 블록은 트랜잭션 유무와 무관하게 자기 slot 이 지나면 봉인되므로, slot 중간에 제출된 트랜잭션은 평균적으로 약 한 간격 안에 확정된다 — 즉시 확정되는 것이 아니다.
 
 <br>
 <br>

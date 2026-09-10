@@ -1,5 +1,5 @@
 # Metadium Blockchain: Developer Guide Document
-Updated on Dec 2, 2022
+Updated on Sep 10, 2026
 
 ## Table of contents
 - [1.Introduction](#1introduction)
@@ -11,6 +11,7 @@ Updated on Dec 2, 2022
   * [Interface (JSON RPC)](#interface-json-rpc)
   * [Network ID & Chain ID](#network-id--chain-id)
   * [Transaction Fee](#transaction-fee)
+  * [EVM Version](#evm-version)
 - [3.Block Explorer](#3block-explorer)
 - [4.Testnet META Faucet](#4-testnet-meta-faucet)
 - [5.Block Interval](#5-block-interval)
@@ -27,7 +28,7 @@ Updated on Dec 2, 2022
 <br>
 
 ## 1.Introduction
-This document is prepared for the Metadium Blockchain Integration as a reference document for the exchange technical team and any individual developers to support Metadium Blockchain. The current document is based on Metadium Mainnet and Testnet (Kalmia v2).
+This document is prepared for the Metadium Blockchain Integration as a reference document for the exchange technical team and any individual developers to support Metadium Blockchain. The current document reflects Metadium Mainnet and Testnet as of the Camellia upgrade (Cancun EVM).
 <br>
 <br>
 
@@ -36,26 +37,31 @@ In order to connect with Metadium blockchain, you must install Metadium client `
 <br>
 
 ### Download Source Code
-The Metadium Client is called Go-Metadium (gmet) and was made by forking Ethereum's Go-Ethereum client. The corresponding source code can be downloaded from the [Github Repository](https://github.com/METADIUM/go-metadium) master branch.
+The Metadium Client is called Go-Metadium (gmet) and was made by forking Ethereum's Go-Ethereum client. The corresponding source code can be downloaded from the [Github Repository](https://github.com/METADIUM/go-metadium), and released binaries are published on the [Releases page](https://github.com/METADIUM/go-metadium/releases).
 <br>
 
 ### Install
-Please refer to the [readme](https://github.com/METADIUM/go-metadium/blob/master/README.md) file in the github repository for installation instructions.
-If you prefer docker environment, please use docker images to build go-metadium which has the least dependency issues.
+**Use the published release asset, not a source build.** Each release ships two Linux tarballs, one per database engine: `metadium-<version>-linux-leveldb.tar.gz` and `metadium-<version>-linux-rocksdb.tar.gz`. Download the one matching the engine your node uses from the [Releases page](https://github.com/METADIUM/go-metadium/releases), unpack it over the node directory, and restart. A node's engine cannot be changed by swapping the binary — the existing chain data determines it.
 
-Developer has to install the following libraries to launch `gmet` at Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-1021-aws x86_64) machine.
-<pre><code>sudo apt-get install -y libtbb2 libzstd1 libjemalloc1 libsnappy1v5 liblz4-1 libstdc++6</pre></code>
+**Minimum OS: Ubuntu 20.04 or newer** (glibc 2.31+). Release binaries are built against that floor and will not start on anything older.
+
+The RocksDB build needs the following shared libraries present on the host.
+<pre><code>sudo apt-get install -y libjemalloc2 libsnappy1v5 liblz4-1 libzstd1</pre></code>
+
+Building from source is for development only and needs **Go 1.22 or newer**; see the [readme](https://github.com/METADIUM/go-metadium/blob/master/README.md) for build instructions. Binaries built on your own host are not portable and should not be deployed.
 
 After installing, run `gmet metadium new-account` to create an account on your local node. You should now be able to run gmet and connect to either Mainnet or Testnet network. Make sure to check the different options and commands with `gmet --help`
 
 Below is the recommended command to start `gmet` node as a full data sync node.
 <pre><code>## MAINNET
-{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --http --http.addr 0.0.0.0
+{data_folder}/bin/gmet --syncmode full --datadir {data_folder} --http
 
 ## TESTNET
-{data_folder}/bin/gmet --meta-testnet --syncmode full --datadir {data_folder} --http --http.addr 0.0.0.0</pre></code>
+{data_folder}/bin/gmet --metadium-testnet --syncmode full --datadir {data_folder} --http</pre></code>
 
-If you would like to start gmet with fast sync, please give the same command without `--syncmode full` option.
+The RPC listener binds to `127.0.0.1` by default and should stay that way. Expose it only behind a reverse proxy or a security group that restricts the source, and never bind `0.0.0.0` on a node holding accounts.
+
+Full sync is the only supported mode. The Metadium network does not serve snap/fast sync, so a node started without `--syncmode full` will not complete its initial sync. Keep `--syncmode full` on every node.
 
 Note that you don’t need to specify bootnode. Pre-defined bootnodes are embedded in the binary code of `gmet` executable. If you want add extra bootnode, please specify extra boot node manually when you start `gmet` at the command line.
 <br>
@@ -69,9 +75,9 @@ The Metadium Team has frozen the Metadium ERC20 contract at 3 AM UTC on February
 <br>
 
 ### Interface (JSON RPC)
-Metadium supports all Go-Ethereum [RPC](https://github.com/ethereumproject/go-ethereum/wiki/JSON-RPC) without modification. Below is the cURL command for testing using Metadium Testnet/Mainnet Open API server.
+Metadium implements the standard Ethereum JSON-RPC API ([execution-apis](https://ethereum.github.io/execution-apis/)), with Metadium additions such as fee-delegated transactions. Where an application relies on a specific method, check it against the node rather than assuming parity with a given go-ethereum release. Below is the cURL command for testing using Metadium Testnet/Mainnet Open API server.
 
-The default RPC port for gmet is 8588 for both Mainnet and Testnet, and you can change it to 8545, which is the same as geth, using the `--rpcport 8545` option when running gmet if you prefer.
+The default RPC port for gmet is 8588 for both Mainnet and Testnet, and you can change it to 8545, which is the same as geth, using the `--http.port 8545` option when running gmet if you prefer.
 
 Moreover, the default P2P port for gmet is 8589 for both Mainnet and Testnet, 
 <pre><code>## MAINNET
@@ -98,6 +104,10 @@ curl -i -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method
 curl -i -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}' https://api.metadium.com/dev
 </pre></code>
 <br>
+
+### EVM Version
+Metadium is on the **Cancun** EVM (the Camellia upgrade), active since block **117,764,000** on Mainnet and **86,449,000** on Testnet. Compile contracts with `--evm-version cancun` (or leave your toolchain's default if it targets Cancun or older). `PUSH0`, `TLOAD`/`TSTORE`, `MCOPY`, `BLOBBASEFEE` and warm `COINBASE` are available from those blocks onward; a contract compiled for a newer EVM version than Cancun will not run.
+<br>
 <br>
 
 ## 3.Block Explorer
@@ -113,12 +123,13 @@ If you need a large amount of META to use in the dev/ staging system of the exch
 <br>
 
 ## 5. Block Interval
-Metadium's consensus algorithm is SPoA (Staking-based Proof of Authority) and the details of the consensus algorithm will be released to the public in a separate sheet.
+Metadium runs a permissioned Proof-of-Authority consensus: a fixed set of block producers registered on-chain through the governance contracts, with staking as the membership requirement. Block production rotates among them by height.
 
 |   | Testnet | Mainnet |
 | -------------------------------------------- | ----------- | ----------- |
-| Block Interval with pending transactions | immediate | immediate |
-| Block Interval with no pending transaction | 5 second | 5 second |
+| Block interval | 2 seconds | 2 seconds |
+
+The interval is a governance parameter (`blockCreationTime`), not a client setting, and it is 2 seconds on both networks. A block is sealed when its slot elapses, whether or not it carries transactions — so a transaction submitted mid-slot is confirmed within about one interval on average, not immediately.
 
 <br>
 <br>
